@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+workspace/*
+!workspace/.gitkeep
+Test.txt
+clip/
+llamacpp*.txt
+pc_mcp_server.py
+requests.log
+.DS_Store
+Thumbs.db
