@@ -15,3 +15,7 @@ pc_mcp_server.py
 requests.log
 .DS_Store
 Thumbs.db
+# secrets (never commit)
+.tunnel_token
+.mcp_secret
+*.bak

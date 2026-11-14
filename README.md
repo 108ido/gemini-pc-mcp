@@ -38,49 +38,46 @@ git clone https://github.com/108ido/gemini-pc-mcp.git
 cd gemini-pc-mcp
 ```
 
-### ขั้นตอนที่ 2: รันระบบ (เลือกวิธีใดวิธีหนึ่ง)
+### ขั้นตอนที่ 2: ตั้งรหัสลับ (ครั้งเดียว)
 
-#### 👉 วิธีที่ง่ายที่สุด (Windows)
-ดับเบิ้ลคลิกที่ไฟล์ **`start.bat`**
-- ระบบจะตรวจสอบ Python, ติดตั้งไลบรารี และเปิดเซิร์ฟเวอร์ + Cloudflare Tunnel ให้อัตโนมัติ
+ทุก request ต้องมีรหัสลับ ถ้าไม่มีหรือรหัสผิด server จะตอบ 404
+```bash
+python -c "import secrets;open('.mcp_secret','w').write(secrets.token_urlsafe(24))"
+```
+- `.mcp_secret` = รหัสลับของ MCP
+- `.tunnel_token` = token ของ Cloudflare Named Tunnel (คัดลอกจาก Zero Trust > Networks > Tunnels)
+- ทั้งสองไฟล์อยู่ใน `.gitignore` **ห้าม commit**
 
-#### 👉 หรือรันแบบ Manual ผ่าน Terminal:
-1. ติดตั้ง Dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-2. รันเซิร์ฟเวอร์ (หน้าต่างที่ 1):
-   ```bash
-   python server.py
-   ```
-3. เปิด Tunnel (หน้าต่างที่ 2):
-   ```bash
-   cloudflared tunnel --url http://127.0.0.1:8000
-   ```
+### ขั้นตอนที่ 3: รันระบบ
 
----
+#### 👉 Windows
+ดับเบิลคลิก **`start.bat`** ระบบจะเปิด MCP server (พอร์ต 8000) แล้วต่อ Named Tunnel ด้วย `--token-file .tunnel_token`
 
-### ขั้นตอนที่ 3: นำลิงก์ไปใส่ใน Google Gemini
-
-1. ดูที่หน้าต่าง Cloudflare Tunnel จะมีกรอบสี่เหลี่ยมแสดงลิงก์:
-   ```text
-   https://xxxxxxxxxxxxxx.trycloudflare.com
-   ```
-2. **นำลิงก์มาเติม `/mcp` ต่อท้าย** เช่น:
-   ```text
-   https://xxxxxxxxxxxxxx.trycloudflare.com/mcp
-   ```
-3. เปิดเว็บ **Google Gemini** ([gemini.google.com](https://gemini.google.com))
-4. ไปที่เมนู **เครื่องมือเชื่อมต่อ (Connectors / Extensions)** > เลือก **+ กำหนดเอง (+ Custom)**
-5. วางลิงก์ลงในช่อง **URL ของเซิร์ฟเวอร์ MCP** *(ช่องอื่นๆ ในการตั้งค่าเพิ่มเติม ปล่อยว่างไว้ได้เลย)*
-6. กด **ถัดไป / บันทึก** แล้วเริ่มคุยกับ Gemini สั่งจัดการไฟล์ในเครื่องได้ทันที! 🎉
+#### 👉 รันเองผ่าน Terminal
+```bash
+pip install -r requirements.txt
+python server.py
+cloudflared tunnel run --token-file .tunnel_token
+```
+ถ้าจะทดลองแบบไม่มี Named Tunnel ใช้ `cloudflared tunnel --url http://127.0.0.1:8000` ได้ แต่จะได้ลิงก์สุ่มที่เปลี่ยนทุกครั้งที่เปิดใหม่
 
 ---
 
-## 📂 โครงสร้างโฟลเดอร์ทำงาน (Workspace)
+### ขั้นตอนที่ 4: นำลิงก์ไปใส่ใน Google Gemini
 
-ค่าเริ่มต้นจะทำงานอยู่ที่โฟลเดอร์ `workspace/` ภายในโปรเจกต์
-หากต้องการเปลี่ยนโฟลเดอร์ทำงานไปยังที่อื่น สามารถกำหนดผ่าน Environment Variable `MCP_WORKSPACE`:
+1. URL ที่ใช้ (เอารหัสในไฟล์ `.mcp_secret` มาใส่แทน `<secret>`):
+   ```text
+   https://pc-mcp.108ido.com/<secret>/mcp
+   ```
+   ถ้า client ใส่ header ได้ ใช้ `https://pc-mcp.108ido.com/mcp` คู่กับ `Authorization: Bearer <secret>` แทนก็ได้
+2. เปิด **Google Gemini** ([gemini.google.com](https://gemini.google.com)) > **เครื่องมือเชื่อมต่อ (Connectors)** > **+ กำหนดเอง (+ Custom)**
+3. วาง URL ลงในช่อง **URL ของเซิร์ฟเวอร์ MCP** แล้วกดบันทึก
+
+---
+
+## 📂 โฟลเดอร์ทำงาน (Workspace)
+
+ค่าเริ่มต้นคือโฟลเดอร์ของโปรเจกต์นี้ ถ้าต้องการเปลี่ยน ให้กำหนดผ่าน Environment Variable `MCP_WORKSPACE`:
 
 ```powershell
 $env:MCP_WORKSPACE = "C:\Your\Custom\Path"
@@ -89,11 +86,12 @@ python server.py
 
 ---
 
-## ⚠️ คำแนะนำด้านความปลอดภัย (Security Best Practices)
+## ⚠️ ความปลอดภัย
 
-- ลิงก์ `trycloudflare.com` เป็นลิงก์ชั่วคราว ใครที่มีลิงก์จะสามารถเข้าถึง Tools ของคุณได้
-- **เมื่อเลิกใช้งานทุกครั้ง:** ให้กด `Ctrl + C` เพื่อปิดหน้าต่าง Terminal ทั้งหมด เพื่อตัดการเชื่อมต่อจากภายนอก
-- หากต้องการใช้งานถาวร แนะนำให้ตั้งค่า **Cloudflare Zero Trust** หรือ **Cloudflare Access** เพื่อบังคับให้ล็อกอินก่อนเข้าถึง
+- ถ้าไม่มีรหัสลับ server จะตอบ 404 ทุก request ถ้ารหัสหลุดเมื่อไหร่ ให้สร้าง `.mcp_secret` ใหม่แล้วรีสตาร์ท server
+- MCP **อ่านหรือแสดงไม่ได้**: `.mcp_secret`, `.tunnel_token`, `.git`, `.env` และทุกอย่างที่อยู่นอกโฟลเดอร์ทำงาน
+- MCP **เขียนไม่ได้**: ไฟล์ที่รันได้ (`.py .bat .cmd .ps1 .vbs .js .exe .dll .lnk .reg .scr .msi`) กันไม่ให้มีคนเขียน `server.py`/`start.bat` ใหม่เพื่อสั่งรันโค้ดบน PC
+- ถ้า token ของ tunnel หลุด ให้ไปกด Refresh token ใน Cloudflare Zero Trust แล้วอัปเดตไฟล์ `.tunnel_token`
 
 ---
 
