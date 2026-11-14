@@ -1,56 +1,57 @@
 @echo off
-chcp 65001 >nul
+setlocal enabledelayedexpansion
+cd /d "%~dp0"
 title Gemini PC Workspace Launcher
-color 0A
 
 echo ========================================================
 echo        Gemini PC Workspace - MCP Server Launcher        
 echo ========================================================
 echo.
 
-:: 1. ตรวจสอบ Python
+:: 1. Check Python
 python --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [ERROR] ไม่พบ Python ในเครื่อง กรุณาติดตั้ง Python 3.10 ขึ้นไป
+if errorlevel 1 (
+    echo [ERROR] Python not found. Please install Python 3.10+
     pause
-    exit /b
+    exit /b 1
 )
 
-:: 2. ติดตั้ง Dependencies
-echo [*] กำลังตรวจสอบความพร้อมของไลบรารี...
-pip install -r requirements.txt --quiet
-
-:: 3. ตรวจสอบ Cloudflared
-set CLOUDFLARED_CMD=cloudflared
-cloudflared --version >nul 2>&1
-if %errorlevel% neq 0 (
+:: 2. Find cloudflared
+set "CF_EXE="
+where cloudflared >nul 2>&1
+if not errorlevel 1 (
+    set "CF_EXE=cloudflared"
+) else (
     if exist "C:\Program Files (x86)\cloudflared\cloudflared.exe" (
-        set CLOUDFLARED_CMD="C:\Program Files (x86)\cloudflared\cloudflared.exe"
+        set "CF_EXE=C:\Program Files (x86)\cloudflared\cloudflared.exe"
     ) else if exist "C:\Program Files\cloudflared\cloudflared.exe" (
-        set CLOUDFLARED_CMD="C:\Program Files\cloudflared\cloudflared.exe"
-    ) else (
-        echo [*] กำลังติดตั้ง Cloudflare Tunnel ผ่าน winget...
-        winget install -e --id Cloudflare.cloudflared --accept-package-agreements --accept-source-agreements
-        if exist "C:\Program Files (x86)\cloudflared\cloudflared.exe" (
-            set CLOUDFLARED_CMD="C:\Program Files (x86)\cloudflared\cloudflared.exe"
-        )
+        set "CF_EXE=C:\Program Files\cloudflared\cloudflared.exe"
+    ) else if exist "%LOCALAPPDATA%\Programs\cloudflared\cloudflared.exe" (
+        set "CF_EXE=%LOCALAPPDATA%\Programs\cloudflared\cloudflared.exe"
     )
 )
 
-echo.
-echo ========================================================
-echo  ระบบกำลังเริ่มต้นการทำงาน:
-echo   1. MCP Server รันที่พอร์ต 8000
-echo   2. Cloudflare Tunnel กำลังสร้างลิงก์ HTTPS
-echo ========================================================
+if not defined CF_EXE (
+    echo [*] Installing Cloudflare Tunnel via winget...
+    winget install -e --id Cloudflare.cloudflared --accept-package-agreements --accept-source-agreements
+    if exist "C:\Program Files (x86)\cloudflared\cloudflared.exe" (
+        set "CF_EXE=C:\Program Files (x86)\cloudflared\cloudflared.exe"
+    ) else if exist "C:\Program Files\cloudflared\cloudflared.exe" (
+        set "CF_EXE=C:\Program Files\cloudflared\cloudflared.exe"
+    )
+)
+
+echo [*] Starting MCP Server (Port 8000)...
+start "Gemini MCP Server" cmd /k "cd /d ""%~dp0"" && python server.py"
+
+echo [*] Starting Cloudflare Tunnel...
+echo [*] Copy the https://...trycloudflare.com/mcp URL to Gemini
 echo.
 
-:: รัน MCP Server ในหน้าต่างใหม่
-start "Gemini MCP Server" cmd /k "python server.py"
+if defined CF_EXE (
+    "%CF_EXE%" tunnel --url http://127.0.0.1:8000
+) else (
+    cloudflared tunnel --url http://127.0.0.1:8000
+)
 
-:: รัน Cloudflare Tunnel ในหน้าต่างนี้
-echo [*] กำลังเชื่อมต่อ Cloudflare Tunnel...
-echo [*] เมื่อได้รับลิงก์ https://...trycloudflare.com ให้เติม /mcp ต่อท้าย
-echo [*] เช่น: https://xxxx.trycloudflare.com/mcp
-echo.
-%CLOUDFLARED_CMD% tunnel --url http://127.0.0.1:8000
+pause
