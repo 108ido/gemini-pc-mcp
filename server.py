@@ -163,11 +163,20 @@ def run_allowed_command(command_key: str) -> str:
 # ---------------------------------------------------------------------------
 import hmac
 SECRET_FILE = Path(__file__).resolve().parent / ".mcp_secret"
-MCP_SECRET = os.getenv("MCP_SECRET") or (SECRET_FILE.read_text(encoding="ascii").strip() if SECRET_FILE.exists() else "")
+def _load_secret() -> str:
+    env = os.getenv("MCP_SECRET", "").strip()
+    if env:
+        return env
+    if not SECRET_FILE.exists() or not SECRET_FILE.read_text(encoding="ascii").strip():
+        import secrets
+        SECRET_FILE.write_text(secrets.token_urlsafe(24), encoding="ascii")  # สร้างครั้งแรกอัตโนมัติ
+    return SECRET_FILE.read_text(encoding="ascii").strip()
+
+MCP_SECRET = _load_secret()
 
 def make_app():
     from starlette.responses import PlainTextResponse
-    kwargs = {"streamable_http_path": "/mcp"}
+    kwargs = {"streamable_http_path": "/mcp", "stateless_http": True}
     try:
         from mcp.server.transport_security import TransportSecuritySettings
         kwargs["transport_security"] = TransportSecuritySettings(enable_dns_rebinding_protection=False)
@@ -198,7 +207,7 @@ if __name__ == "__main__":
     print("🚀 Gemini PC Workspace - MCP Server (Upgraded Binary/Image Support)")
     print(f"📂 Workspace Directory: {WORKSPACE_DIR}")
     if not MCP_SECRET:
-        raise SystemExit("ไม่พบรหัสลับ: สร้างไฟล์ .mcp_secret ก่อน (กันไม่ให้เปิด server แบบไม่มีรหัส)")
+        raise SystemExit("ไม่มีรหัสลับ (กันไม่ให้เปิด server แบบไม่มีรหัส)")
     print("🌐 Endpoint: http://127.0.0.1:8000/<secret>/mcp  (รหัสอยู่ในไฟล์ .mcp_secret)")
     print("=" * 60)
     import uvicorn

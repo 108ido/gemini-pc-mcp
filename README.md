@@ -38,40 +38,42 @@ git clone https://github.com/108ido/gemini-pc-mcp.git
 cd gemini-pc-mcp
 ```
 
-### ขั้นตอนที่ 2: ตั้งรหัสลับ (ครั้งเดียว)
+### ขั้นตอนที่ 2: ดับเบิลคลิก `start.bat`
 
-ทุก request ต้องมีรหัสลับ ถ้าไม่มีหรือรหัสผิด server จะตอบ 404
+ต้องมี **Python 3.10+** และ **cloudflared** ในเครื่องก่อน ถ้ายังไม่มี cloudflared ให้ติดตั้งด้วยคำสั่งนี้:
 ```bash
-python -c "import secrets;open('.mcp_secret','w').write(secrets.token_urlsafe(24))"
+winget install --id Cloudflare.cloudflared
 ```
-- `.mcp_secret` = รหัสลับของ MCP
-- `.tunnel_token` = token ของ Cloudflare Named Tunnel (คัดลอกจาก Zero Trust > Networks > Tunnels)
-- ทั้งสองไฟล์อยู่ใน `.gitignore` **ห้าม commit**
 
-### ขั้นตอนที่ 3: รันระบบ
+ตอนรัน `start.bat` จะทำให้อัตโนมัติทั้งหมด:
+1. ติดตั้งไลบรารีที่ต้องใช้ (เฉพาะครั้งแรก)
+2. สร้างรหัสลับเก็บในไฟล์ `.mcp_secret` (เฉพาะครั้งแรก ไฟล์นี้ไม่ขึ้น git)
+3. เปิด MCP server ที่พอร์ต 8000
+4. เปิด Cloudflare Tunnel แล้วแสดงลิงก์สำหรับเอาไปใส่ใน Gemini บนจอ
 
-#### 👉 Windows
-ดับเบิลคลิก **`start.bat`** ระบบจะเปิด MCP server (พอร์ต 8000) แล้วต่อ Named Tunnel ด้วย `--token-file .tunnel_token`
+| โหมด | ใช้เมื่อ | ลิงก์ |
+|---|---|---|
+| **Quick Tunnel** (ค่าเริ่มต้น) | ไม่ต้องสมัครอะไร ฟรี | `https://xxxx.trycloudflare.com/<secret>/mcp` (เปลี่ยนทุกครั้งที่เปิดใหม่) |
+| **Named Tunnel** | มีโดเมนใน Cloudflare อยู่แล้ว อยากได้ลิงก์ถาวร | วาง token ไว้ในไฟล์ `.tunnel_token` → `https://<โดเมนของคุณ>/<secret>/mcp` |
+
+`<secret>` = ข้อความในไฟล์ `.mcp_secret` ซึ่ง `start.bat` จะแสดงลิงก์เต็มพร้อมรหัสให้บนจออยู่แล้ว
 
 #### 👉 รันเองผ่าน Terminal
 ```bash
 pip install -r requirements.txt
 python server.py
-cloudflared tunnel run --token-file .tunnel_token
+cloudflared tunnel --url http://127.0.0.1:8000
 ```
-ถ้าจะทดลองแบบไม่มี Named Tunnel ใช้ `cloudflared tunnel --url http://127.0.0.1:8000` ได้ แต่จะได้ลิงก์สุ่มที่เปลี่ยนทุกครั้งที่เปิดใหม่
 
 ---
 
-### ขั้นตอนที่ 4: นำลิงก์ไปใส่ใน Google Gemini
+### ขั้นตอนที่ 3: วางลิงก์ใน Google Gemini
 
-1. URL ที่ใช้ (เอารหัสในไฟล์ `.mcp_secret` มาใส่แทน `<secret>`):
-   ```text
-   https://pc-mcp.108ido.com/<secret>/mcp
-   ```
-   ถ้า client ใส่ header ได้ ใช้ `https://pc-mcp.108ido.com/mcp` คู่กับ `Authorization: Bearer <secret>` แทนก็ได้
-2. เปิด **Google Gemini** ([gemini.google.com](https://gemini.google.com)) > **เครื่องมือเชื่อมต่อ (Connectors)** > **+ กำหนดเอง (+ Custom)**
-3. วาง URL ลงในช่อง **URL ของเซิร์ฟเวอร์ MCP** แล้วกดบันทึก
+1. เปิด **Google Gemini** ([gemini.google.com](https://gemini.google.com)) แล้วไปที่ **แสดงเพิ่ม › ปรับแต่ง › เครื่องมือเชื่อมต่อ › + กำหนดเอง**
+2. วางลิงก์ `https://.../<secret>/mcp` ลงในช่อง **URL ของเซิร์ฟเวอร์ MCP** → กด **ถัดไป** → ติ๊กยอมรับ → กด **เชื่อมต่อ**
+3. ถ้าเชื่อมต่อสำเร็จ จะเห็น **PC Workspace** พร้อมเครื่องมือ 6 ตัว จากนั้นลองพิมพ์สั่งใน Gemini ได้เลย เช่น *"ใช้ PC Workspace สร้างไฟล์ hello.html …"*
+
+> ถ้าใช้ Quick Tunnel ลิงก์จะเปลี่ยนทุกครั้งที่เปิด `start.bat` ใหม่ ต้องลบ connector ตัวเก่าใน Gemini แล้วเพิ่มตัวใหม่ด้วยลิงก์ใหม่ทุกครั้ง
 
 ---
 
